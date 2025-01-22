@@ -197,8 +197,9 @@ class _HomePageState extends State<HomePage> {
             Container(
               color: Colors.black,
               padding: const EdgeInsets.all(16),
-              child: Row(
+              child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
@@ -219,45 +220,50 @@ class _HomePageState extends State<HomePage> {
                       ),
                     ],
                   ),
-                  Slider(
-                    value: fontSize,
-                    min: 12,
-                    max: 48,
-                    onChanged: (value) {
-                      setState(() {
-                        fontSize = value;
-                      });
-                    },
-                    onChangeEnd: (value) => _saveState(), // Save on slider change end
-                  ),
-                  SizedBox(width: 12),
-                  DropdownButton<String>(
-                    value: _fontFamily,
-                    dropdownColor: Colors.black,
-                    items: const [
-                      DropdownMenuItem(value: 'Roboto', child: Text('Roboto', style: TextStyle(color: Colors.white))),
-                      DropdownMenuItem(value: 'Open Sans', child: Text('Open Sans', style: TextStyle(color: Colors.white))),
-                      DropdownMenuItem(value: 'Lobster', child: Text('Lobster', style: TextStyle(color: Colors.white))),
-                      DropdownMenuItem(value: 'Oswald', child: Text('Oswald', style: TextStyle(color: Colors.white))),
-                      DropdownMenuItem(value: 'Merriweather', child: Text('Merriweather', style: TextStyle(color: Colors.white))),
-                      DropdownMenuItem(value: 'Pacifico', child: Text('Pacifico', style: TextStyle(color: Colors.white))),
-                      DropdownMenuItem(value: 'Playfair Display', child: Text('Playfair Display', style: TextStyle(color: Colors.white))),
-                      DropdownMenuItem(value: 'Raleway', child: Text('Raleway', style: TextStyle(color: Colors.white))),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Slider(
+                        value: fontSize,
+                        min: 12,
+                        max: 48,
+                        onChanged: (value) {
+                          setState(() {
+                            fontSize = value;
+                          });
+                        },
+                        onChangeEnd: (value) => _saveState(), // Save on slider change end
+                      ),
+                      SizedBox(width: 12),
+                      DropdownButton<String>(
+                        value: _fontFamily,
+                        dropdownColor: Colors.black,
+                        items: const [
+                          DropdownMenuItem(value: 'Roboto', child: Text('Roboto', style: TextStyle(color: Colors.white))),
+                          DropdownMenuItem(value: 'Open Sans', child: Text('Open Sans', style: TextStyle(color: Colors.white))),
+                          DropdownMenuItem(value: 'Lobster', child: Text('Lobster', style: TextStyle(color: Colors.white))),
+                          DropdownMenuItem(value: 'Oswald', child: Text('Oswald', style: TextStyle(color: Colors.white))),
+                          DropdownMenuItem(value: 'Merriweather', child: Text('Merriweather', style: TextStyle(color: Colors.white))),
+                          DropdownMenuItem(value: 'Pacifico', child: Text('Pacifico', style: TextStyle(color: Colors.white))),
+                          DropdownMenuItem(value: 'Playfair Display', child: Text('Playfair Display', style: TextStyle(color: Colors.white))),
+                          DropdownMenuItem(value: 'Raleway', child: Text('Raleway', style: TextStyle(color: Colors.white))),
+                        ],
+                        onChanged: (newValue) {
+                          setState(() {
+                            _fontFamily = newValue!;
+                          });
+                          _saveState();
+                        },
+                      ),
+                      SizedBox(width: 12),
+                      IconButton(
+                        onPressed: _changeFontColor,
+                        icon: const Icon(
+                          Icons.palette,
+                          color: Colors.white,
+                        ),
+                      ),
                     ],
-                    onChanged: (newValue) {
-                      setState(() {
-                        _fontFamily = newValue!;
-                      });
-                      _saveState();
-                    },
-                  ),
-                  SizedBox(width: 12),
-                  IconButton(
-                    onPressed: _changeFontColor,
-                    icon: const Icon(
-                      Icons.palette,
-                      color: Colors.white,
-                    ),
                   ),
                 ],
               ),
