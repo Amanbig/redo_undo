@@ -184,7 +184,7 @@ class _HomePageState extends State<HomePage> {
                             style: GoogleFonts.getFont(
                               _fontFamily,
                               color: _fontColor,
-                              fontSize: scaledFontSize, // Use responsive font size
+                              fontSize: fontSize, // Use responsive font size
                             ),
                             textAlign: TextAlign.center,
                           ),
