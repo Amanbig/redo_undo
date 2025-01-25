@@ -246,11 +246,49 @@ void _redo() {
   _initialPosition = _currentTextStates[_activePageId]!.position;
 }
 
-void _onPanUpdate(DragUpdateDetails details) {
+void _onPanUpdate(DragUpdateDetails details, BoxConstraints constraints) {
   _updateCurrentState((state) {
-    state.position += details.delta;
+    // Get the container size
+    final containerWidth = constraints.maxWidth;
+    final containerHeight = constraints.maxHeight;
+
+    // Calculate text size (approximate)
+    final textStyle = GoogleFonts.getFont(
+      state.fontFamily,
+      fontSize: state.fontSize,
+    );
+    final textPainter = TextPainter(
+      text: TextSpan(text: state.text, style: textStyle),
+      textDirection: TextDirection.ltr,
+    )..layout();
+
+    final textWidth = textPainter.width;
+    final textHeight = textPainter.height;
+
+    // Get center of the container
+    final containerCenterX = containerWidth / 2;
+    final containerCenterY = containerHeight / 2;
+
+    // Calculate new position relative to the center
+    Offset newPosition = state.position + details.delta;
+
+    // Constrain movement horizontally (relative to center)
+    final constrainedX = (newPosition.dx).clamp(
+      -containerCenterX + textWidth / 2,
+      containerCenterX - textWidth / 2,
+    );
+
+    // Constrain movement vertically (relative to center)
+    final constrainedY = (newPosition.dy).clamp(
+      -containerCenterY + textHeight / 2,
+      containerCenterY - textHeight / 2,
+    );
+
+    state.position = Offset(constrainedX, constrainedY);
   }, saveImmediately: false);
 }
+
+
 
 void _onPanEnd(DragEndDetails details) {
   final currentState = _currentTextStates[_activePageId]!;
@@ -360,36 +398,40 @@ void _onPanEnd(DragEndDetails details) {
                           color: Colors.white,
                           border: Border.all(color: Colors.black, width: 2),
                         ),
-                        child: GestureDetector(
-                          onPanStart: _onPanStart,
-                          onPanUpdate: _onPanUpdate,
-                          onPanEnd: _onPanEnd,
-                          child: Stack(
-                            alignment: Alignment.center,
-                            children: [
-                              Transform.translate(
-                                offset: currentState.position,
-                                child: Container(
-                                  decoration: BoxDecoration(
-                                    border: Border.all(color: currentState.borderColor),
-                                  ),
-                                  child: Text(
-                                    currentState.text,
-                                    style: GoogleFonts.getFont(
-                                      currentState.fontFamily,
-                                      fontSize: currentState.fontSize,
-                                      color: currentState.fontColor,
-                                      fontWeight: currentState.isBold ? FontWeight.bold : FontWeight.normal,
-                                      fontStyle: currentState.isItalic ? FontStyle.italic : FontStyle.normal,
-                                      decoration: currentState.isUnderline ? TextDecoration.underline : null,
+                        child: LayoutBuilder(
+                          builder: (context, constraints) {
+                            return GestureDetector(
+                              onPanStart: _onPanStart,
+                              onPanUpdate: (details) => _onPanUpdate(details, constraints),
+                              onPanEnd: _onPanEnd,
+                              child: Stack(
+                                alignment: Alignment.center,
+                                children: [
+                                  Transform.translate(
+                                    offset: currentState.position,
+                                    child: Container(
+                                      decoration: BoxDecoration(
+                                        border: Border.all(color: currentState.borderColor),
+                                      ),
+                                      child: Text(
+                                        currentState.text,
+                                        style: GoogleFonts.getFont(
+                                          currentState.fontFamily,
+                                          fontSize: currentState.fontSize,
+                                          color: currentState.fontColor,
+                                          fontWeight: currentState.isBold ? FontWeight.bold : FontWeight.normal,
+                                          fontStyle: currentState.isItalic ? FontStyle.italic : FontStyle.normal,
+                                          decoration: currentState.isUnderline ? TextDecoration.underline : null,
+                                         ),
+                                      ),
                                     ),
                                   ),
-                                ),
+                                ],
                               ),
-                            ],
-                          ),
-                        ),
+                            );
+                          },
                       ),
+                      )
                     );
                   },
                 );
