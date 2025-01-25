@@ -3,26 +3,27 @@ import 'package:flutter_colorpicker/flutter_colorpicker.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 class TextState {
-  final String text;
-  final double fontSize;
-  final Color fontColor;
-  final String fontFamily;
-  final Offset position;
-  final Color borderColor;
-  final bool isBold;
-  final bool isItalic;
-  final bool isUnderline;
+   String text;
+   double fontSize;
+   Color fontColor;
+   String fontFamily;
+   Offset position;
+   Color borderColor;
+   bool isBold;
+   bool isItalic;
+   bool isUnderline;
 
-  TextState(
-      {required this.text,
-      required this.fontSize,
-      required this.fontColor,
-      required this.fontFamily,
-      required this.position,
-      required this.borderColor,
-      required this.isBold,
-      required this.isItalic,
-      required this.isUnderline});
+  TextState({
+    required this.text,
+    required this.fontSize,
+    required this.fontColor,
+    required this.fontFamily,
+    required this.position,
+    required this.borderColor,
+    required this.isBold,
+    required this.isItalic,
+    required this.isUnderline,
+  });
 }
 
 class HomePage extends StatefulWidget {
@@ -33,126 +34,207 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
-  final List<TextState> _undoStack = [];
-  final List<TextState> _redoStack = [];
-  String _fontFamily = 'Roboto';
-  double fontSize = 16;
-  Color _fontColor = Colors.black;
-  String currentText = 'Change Me';
-  Offset _position = Offset(0, 0);
-  Offset _initialPosition = Offset(0, 0);
-  Color _borderColor = Colors.black;
-  bool _isBold = false;
-  bool _isItalic = false;
-  bool _isUnderline = false;
+  final Map<String, List<TextState>> _undoStacks = {};
+  final Map<String, List<TextState>> _redoStacks = {};
+  final Map<String, TextState> _currentTextStates = {};
+  final List<String> pageIds = List.generate(6, (index) => 'page${index + 1}');
+  String _activePageId = 'page1';
+  late PageController _pageController;
+  Offset _initialPosition = Offset.zero;
 
-  @override
+   @override
   void initState() {
     super.initState();
-    _saveState();
+    _pageController = PageController(
+      initialPage: 0,
+      viewportFraction: 1.0, // Full page view
+    );
+    for (var pageId in pageIds) {
+      _undoStacks[pageId] = [];
+      _redoStacks[pageId] = [];
+      _currentTextStates[pageId] = TextState(
+        text: 'Edit Me',
+        fontSize: 16,
+        fontColor: Colors.black,
+        fontFamily: 'Roboto',
+        position: Offset.zero,
+        borderColor: Colors.black,
+        isBold: false,
+        isItalic: false,
+        isUnderline: false,
+      );
+      _saveState(pageId);
+    }
   }
 
-  void _saveState() {
-    if (_undoStack.isEmpty ||
-        _undoStack.last.text != currentText ||
-        _undoStack.last.fontSize != fontSize ||
-        _undoStack.last.fontColor != _fontColor ||
-        _undoStack.last.fontFamily != _fontFamily ||
-        _undoStack.last.position != _position ||
-        _undoStack.last.isBold != _isBold ||
-        _undoStack.last.isItalic != _isItalic ||
-        _undoStack.last.isUnderline != _isUnderline) {
-      _undoStack.add(TextState(
-          text: currentText,
-          fontSize: fontSize,
-          fontColor: _fontColor,
-          fontFamily: _fontFamily,
-          position: _position,
-          borderColor: _borderColor,
-          isBold: _isBold,
-          isItalic: _isItalic,
-          isUnderline: _isUnderline));
-      _redoStack.clear();
+  void _saveState(String pageId) {
+    final currentStack = _undoStacks[pageId]!;
+    final lastState = currentStack.isEmpty ? null : currentStack.last;
+    final currentState = _currentTextStates[pageId]!;
+
+    if (lastState == null ||
+        lastState.text != currentState.text ||
+        lastState.fontSize != currentState.fontSize ||
+        lastState.fontColor != currentState.fontColor ||
+        lastState.fontFamily != currentState.fontFamily ||
+        lastState.position != currentState.position ||
+        lastState.borderColor != currentState.borderColor ||
+        lastState.isBold != currentState.isBold ||
+        lastState.isItalic != currentState.isItalic ||
+        lastState.isUnderline != currentState.isUnderline) {
+      currentStack.add(TextState(
+        text: currentState.text,
+        fontSize: currentState.fontSize,
+        fontColor: currentState.fontColor,
+        fontFamily: currentState.fontFamily,
+        position: currentState.position,
+        borderColor: currentState.borderColor,
+        isBold: currentState.isBold,
+        isItalic: currentState.isItalic,
+        isUnderline: currentState.isUnderline,
+      ));
+      _redoStacks[pageId]!.clear();
     }
   }
 
   void _undo() {
-    if (_undoStack.length > 1) {
-      final previousState = _undoStack.removeLast();
-      _redoStack.add(previousState);
-      final lastState = _undoStack.last;
+  final currentStack = _undoStacks[_activePageId]!;
+  final redoStack = _redoStacks[_activePageId]!;
 
-      setState(() {
-        currentText = lastState.text;
-        fontSize = lastState.fontSize;
-        _fontColor = lastState.fontColor;
-        _fontFamily = lastState.fontFamily;
-        _position = lastState.position;
-        _borderColor = lastState.borderColor;
-        _isBold = lastState.isBold;
-        _isItalic = lastState.isItalic;
-        _isUnderline = lastState.isBold;
-      });
+  if (currentStack.length > 1) {
+    redoStack.add(currentStack.removeLast());
+    final lastState = currentStack.last;
+
+    setState(() {
+      _currentTextStates[_activePageId] = lastState;
+    });
+  } else {
+    // Find the previous page with undo history
+    for (int i = pageIds.indexOf(_activePageId) - 1; i >= 0; i--) {
+      final prevPageId = pageIds[i];
+      final prevStack = _undoStacks[prevPageId]!;
+      
+      if (prevStack.length > 1) {
+        // Animate to this page
+        _pageController.animateToPage(
+          i, 
+          duration: const Duration(milliseconds: 300), 
+          curve: Curves.easeInOut,
+        );
+        _activePageId = prevPageId;
+
+        // Perform undo
+        final redoStack = _redoStacks[prevPageId]!;
+        redoStack.add(prevStack.removeLast());
+        final lastState = prevStack.last;
+
+        setState(() {
+          _currentTextStates[prevPageId] = lastState;
+        });
+        break;
+      }
     }
   }
+}
 
-  void _redo() {
-    if (_redoStack.isNotEmpty) {
-      final nextState = _redoStack.removeLast();
-      _undoStack.add(TextState(
-          text: currentText,
-          fontSize: fontSize,
-          fontColor: _fontColor,
-          fontFamily: _fontFamily,
-          position: _position,
-          borderColor: _borderColor,
-          isBold: _isBold,
-          isItalic: _isItalic,
-          isUnderline: _isUnderline));
+void _redo() {
+  final currentStack = _undoStacks[_activePageId]!;
+  final redoStack = _redoStacks[_activePageId]!;
 
-      setState(() {
-        currentText = nextState.text;
-        fontSize = nextState.fontSize;
-        _fontColor = nextState.fontColor;
-        _fontFamily = nextState.fontFamily;
-        _position = nextState.position;
-        _borderColor = nextState.borderColor;
-        _isBold = nextState.isBold;
-        _isItalic = nextState.isItalic;
-        _isUnderline = nextState.isUnderline;
-      });
+  if (redoStack.isNotEmpty) {
+    currentStack.add(redoStack.removeLast());
+    final nextState = currentStack.last;
+
+    setState(() {
+      _currentTextStates[_activePageId] = nextState;
+    });
+  } else {
+    // Find the next page with redo history
+    for (int i = pageIds.indexOf(_activePageId) + 1; i < pageIds.length; i++) {
+      final nextPageId = pageIds[i];
+      final nextRedoStack = _redoStacks[nextPageId]!;
+      
+      if (nextRedoStack.isNotEmpty) {
+        // Animate to this page
+        _pageController.animateToPage(
+          i, 
+          duration: const Duration(milliseconds: 300), 
+          curve: Curves.easeInOut,
+        );
+        _activePageId = nextPageId;
+
+        // Perform redo
+        final currentStack = _undoStacks[nextPageId]!;
+        currentStack.add(nextRedoStack.removeLast());
+        final nextState = currentStack.last;
+
+        setState(() {
+          _currentTextStates[nextPageId] = nextState;
+        });
+        break;
+      }
     }
   }
+}
 
-  void _changeFontColor() {
-    Color tempColor = _fontColor;
+  void _showEditDialog() {
+    final currentState = _currentTextStates[_activePageId]!;
+    showDialog(
+      context: context,
+      builder: (context) {
+        String updatedText = currentState.text;
+        return AlertDialog(
+          title: const Text('Edit Text'),
+          content: TextField(
+            controller: TextEditingController(text: currentState.text),
+            onChanged: (value) {
+              updatedText = value;
+            },
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                _updateCurrentState((state) => state.text = updatedText);
+                Navigator.of(context).pop();
+              },
+              child: const Text('Save'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _pickColor(bool isFontColor) {
+    final currentState = _currentTextStates[_activePageId]!;
+    Color tempColor = isFontColor ? currentState.fontColor : currentState.borderColor;
+
     showDialog(
       context: context,
       builder: (context) {
         return AlertDialog(
-          title: const Text("Choose Font Color"),
+          title: const Text('Pick a Color'),
           content: SingleChildScrollView(
             child: ColorPicker(
-              pickerColor: _fontColor,
+              pickerColor: tempColor,
               onColorChanged: (color) {
-                setState(() {
-                  tempColor = color;
-                });
+                tempColor = color;
               },
-              labelTypes: [],
-              pickerAreaHeightPercent: 0.8,
             ),
           ),
           actions: [
             TextButton(
               onPressed: () {
-                setState(() {
-                  _fontColor = tempColor;
+                _updateCurrentState((state) {
+                  if (isFontColor) {
+                    state.fontColor = tempColor;
+                  } else {
+                    state.borderColor = tempColor;
+                  }
                 });
-                _saveState();
                 Navigator.of(context).pop();
               },
-              child: const Text("OK"),
+              child: const Text('Save'),
             ),
           ],
         );
@@ -161,221 +243,201 @@ class _HomePageState extends State<HomePage> {
   }
 
   void _onPanStart(DragStartDetails details) {
-    _initialPosition = details.localPosition;
+  _initialPosition = _currentTextStates[_activePageId]!.position;
+}
+
+void _onPanUpdate(DragUpdateDetails details) {
+  _updateCurrentState((state) {
+    state.position += details.delta;
+  }, saveImmediately: false);
+}
+
+void _onPanEnd(DragEndDetails details) {
+  final currentState = _currentTextStates[_activePageId]!;
+  if ((_initialPosition - currentState.position).distance > 10) {
+    _saveState(_activePageId);
+  }
+}
+
+
+  void _onPageChanged(int index) {
+    setState(() {
+      _activePageId = pageIds[index];
+    });
   }
 
-  void _onPanUpdate(DragUpdateDetails details) {
-    setState(() {
-      _position = _position + details.localPosition - _initialPosition;
-      _initialPosition = details.localPosition;
+  void _updateCurrentState(void Function(TextState) update, {bool saveImmediately = true}) {
+  setState(() {
+    final currentState = _currentTextStates[_activePageId]!;
+    final updatedState = TextState(
+      text: currentState.text,
+      fontSize: currentState.fontSize,
+      fontColor: currentState.fontColor,
+      fontFamily: currentState.fontFamily,
+      position: currentState.position,
+      borderColor: currentState.borderColor,
+      isBold: currentState.isBold,
+      isItalic: currentState.isItalic,
+      isUnderline: currentState.isUnderline,
+    );
+    update(updatedState);
+    _currentTextStates[_activePageId] = updatedState;
+    
+    if (saveImmediately) {
+      _saveState(_activePageId);
+    }
+  });
+}
+
+  void _changeFontSize(bool increase) {
+    _updateCurrentState((state) {
+      state.fontSize += increase ? 2 : -2;
+      state.fontSize = state.fontSize < 8 ? 8 : state.fontSize;
+    });
+  }
+
+  void _toggleTextStyle(String style) {
+    _updateCurrentState((state) {
+      switch (style) {
+        case 'bold':
+          state.isBold = !state.isBold;
+          break;
+        case 'italic':
+          state.isItalic = !state.isItalic;
+          break;
+        case 'underline':
+          state.isUnderline = !state.isUnderline;
+          break;
+      }
     });
   }
 
   @override
   Widget build(BuildContext context) {
-    // Responsive font size based on screen width
-    double screenWidth = MediaQuery.of(context).size.width;
-    double scaledFontSize =
-        screenWidth * 0.05; // Scaled font size based on screen width
-
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: Colors.black,
-        title: Text(
-          'Redo Undo',
-          style: TextStyle(fontSize: scaledFontSize, color: Colors.white),
-        ),
-        centerTitle: true,
+        title: const Text('Redo Undo Functionality'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.undo),
+            onPressed: _undo,
+          ),
+          IconButton(
+            icon: const Icon(Icons.redo),
+            onPressed: _redo,
+          ),
+        ],
       ),
-      body: SafeArea(
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            return Column(
-              children: [
-                Expanded(
-                  child: Center(
-                    child: Transform.translate(
-                      offset: _position,
-                      child: GestureDetector(
-                        onPanStart: _onPanStart,
-                        onPanUpdate: _onPanUpdate,
-                        onPanEnd: (value) => _saveState(),
-                        child: Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            border: Border.all(
-                              color: _fontColor,
-                              width: 2,
-                            ),
-                          ),
-                          child: Text(
-                            currentText,
-                            style: GoogleFonts.getFont(_fontFamily,
-                                color: _fontColor,
-                                fontSize: fontSize,
-                                decoration:_isUnderline? TextDecoration.underline:TextDecoration.none,
-                                fontWeight: _isBold
-                                    ? FontWeight.bold
-                                    : FontWeight
-                                        .normal,
-                                fontStyle:_isItalic? FontStyle.italic:FontStyle.normal
-                                // Use responsive font size
+      body: Column(
+        children: [
+          Expanded(
+            child: PageView.builder(
+              controller: _pageController,
+              itemCount: pageIds.length,
+              pageSnapping: true,
+              physics: const PageScrollPhysics(),
+              onPageChanged: _onPageChanged,
+              itemBuilder: (context, index) {
+                final currentState = _currentTextStates[pageIds[index]]!;
+
+                return LayoutBuilder(
+                  builder: (context, constraints) {
+                    // Calculate the container size maintaining 9:16 aspect ratio
+                    double containerWidth = constraints.maxWidth * 0.9;
+                    double containerHeight = containerWidth * (16 / 9);
+
+                    // If the height exceeds the available height, adjust width
+                    if (containerHeight > constraints.maxHeight * 0.8) {
+                      containerHeight = constraints.maxHeight * 0.8;
+                      containerWidth = containerHeight * (9 / 16);
+                    }
+
+                    return Center(
+                      child: Container(
+                        width: containerWidth,
+                        height: containerHeight,
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          border: Border.all(color: Colors.black, width: 2),
+                        ),
+                        child: GestureDetector(
+                          onPanStart: _onPanStart,
+                          onPanUpdate: _onPanUpdate,
+                          onPanEnd: _onPanEnd,
+                          child: Stack(
+                            alignment: Alignment.center,
+                            children: [
+                              Transform.translate(
+                                offset: currentState.position,
+                                child: Container(
+                                  decoration: BoxDecoration(
+                                    border: Border.all(color: currentState.borderColor),
+                                  ),
+                                  child: Text(
+                                    currentState.text,
+                                    style: GoogleFonts.getFont(
+                                      currentState.fontFamily,
+                                      fontSize: currentState.fontSize,
+                                      color: currentState.fontColor,
+                                      fontWeight: currentState.isBold ? FontWeight.bold : FontWeight.normal,
+                                      fontStyle: currentState.isItalic ? FontStyle.italic : FontStyle.normal,
+                                      decoration: currentState.isUnderline ? TextDecoration.underline : null,
+                                    ),
+                                  ),
                                 ),
-                            textAlign: TextAlign.center,
+                              ),
+                            ],
                           ),
                         ),
                       ),
-                    ),
-                  ),
+                    );
+                  },
+                );
+              },
+            ),
+          ),
+          // Buttons moved outside the container
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.edit),
+                  onPressed: _showEditDialog,
                 ),
-                Container(
-                  color: Colors.black,
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          IconButton(
-                            onPressed: _undoStack.isEmpty ? null : _undo,
-                            icon: Icon(
-                              Icons.undo,
-                              color: _undoStack.length <= 1
-                                  ? Colors.grey[800]
-                                  : Colors.white,
-                            ),
-                          ),
-                          IconButton(
-                            onPressed: _redoStack.isEmpty ? null : _redo,
-                            icon: Icon(
-                              Icons.redo,
-                              color: _redoStack.isEmpty
-                                  ? Colors.grey[800]
-                                  : Colors.white,
-                            ),
-                          ),
-                          TextButton(
-                            onPressed: () {
-                              setState(() {
-                                _isBold = !_isBold;
-                              });
-                              _saveState();
-                            },
-                            child: Text(
-                              'B',
-                              style: TextStyle(
-                                  color: _isBold ? Colors.blue : Colors.white,
-                                  fontSize: 21),
-                            ),
-                          ),
-                          TextButton(
-                            onPressed: () {
-                              setState(() {
-                                _isItalic = !_isItalic;
-                              });
-                              _saveState();
-                            },
-                            child: Text(
-                              'I',
-                              style: TextStyle(
-                                  color: _isItalic ? Colors.blue : Colors.white,
-                                  fontSize: 21),
-                            ),
-                          ),
-                          TextButton(
-                            onPressed: () {
-                              setState(() {
-                                _isUnderline = !_isUnderline;
-                              });
-                              _saveState();
-                            },
-                            child: Text(
-                              'U',
-                              style: TextStyle(
-                                  color: _isUnderline ? Colors.blue : Colors.white,
-                                  fontSize: 21),
-                            ),
-                          ),
-                        ],
-                      ),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Slider(
-                            value: fontSize,
-                            min: 12,
-                            max: 48,
-                            onChanged: (value) {
-                              setState(() {
-                                fontSize = value;
-                              });
-                            },
-                            onChangeEnd: (value) => _saveState(),
-                          ),
-                          SizedBox(width: 12),
-                          DropdownButton<String>(
-                            value: _fontFamily,
-                            dropdownColor: Colors.black,
-                            items: const [
-                              DropdownMenuItem(
-                                  value: 'Roboto',
-                                  child: Text('Roboto',
-                                      style: TextStyle(color: Colors.white))),
-                              DropdownMenuItem(
-                                  value: 'Open Sans',
-                                  child: Text('Open Sans',
-                                      style: TextStyle(color: Colors.white))),
-                              DropdownMenuItem(
-                                  value: 'Lobster',
-                                  child: Text('Lobster',
-                                      style: TextStyle(color: Colors.white))),
-                              DropdownMenuItem(
-                                  value: 'Oswald',
-                                  child: Text('Oswald',
-                                      style: TextStyle(color: Colors.white))),
-                              DropdownMenuItem(
-                                  value: 'Merriweather',
-                                  child: Text('Merriweather',
-                                      style: TextStyle(color: Colors.white))),
-                              DropdownMenuItem(
-                                  value: 'Pacifico',
-                                  child: Text('Pacifico',
-                                      style: TextStyle(color: Colors.white))),
-                              DropdownMenuItem(
-                                  value: 'Playfair Display',
-                                  child: Text('Playfair Display',
-                                      style: TextStyle(color: Colors.white))),
-                              DropdownMenuItem(
-                                  value: 'Raleway',
-                                  child: Text('Raleway',
-                                      style: TextStyle(color: Colors.white))),
-                            ],
-                            onChanged: (newValue) {
-                              setState(() {
-                                _fontFamily = newValue!;
-                              });
-                              _saveState();
-                            },
-                          ),
-                          SizedBox(width: 12),
-                          IconButton(
-                            onPressed: _changeFontColor,
-                            icon: const Icon(
-                              Icons.palette,
-                              color: Colors.white,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
+                IconButton(
+                  icon: const Icon(Icons.remove),
+                  onPressed: () => _changeFontSize(false),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.add),
+                  onPressed: () => _changeFontSize(true),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.format_bold),
+                  onPressed: () => _toggleTextStyle('bold'),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.format_italic),
+                  onPressed: () => _toggleTextStyle('italic'),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.format_underline),
+                  onPressed: () => _toggleTextStyle('underline'),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.color_lens),
+                  onPressed: () => _pickColor(true),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.border_color),
+                  onPressed: () => _pickColor(false),
                 ),
               ],
-            );
-          },
-        ),
+            ),
+          ),
+        ],
       ),
     );
   }
