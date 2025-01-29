@@ -546,10 +546,10 @@ class _HomePageState extends State<HomePage> {
                   icon: const Icon(Icons.color_lens),
                   onPressed: () => _pickColor(true),
                 ),
-                IconButton(
-                  icon: const Icon(Icons.border_color),
-                  onPressed: () => _pickColor(false),
-                ),
+                // IconButton(
+                //   icon: const Icon(Icons.border_color),
+                //   onPressed: () => _pickColor(false),
+                // ),
               ],
             ),
           ),
