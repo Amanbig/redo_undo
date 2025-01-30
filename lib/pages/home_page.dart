@@ -470,6 +470,7 @@ class _HomePageState extends State<HomePage> {
                               children: page.texts.map((textState) {
                                 return Positioned.fill(
                                   child: GestureDetector(
+                                    onTap: () => _onPanStart(textState.id, DragStartDetails(localPosition: Offset.zero)),
                                     onPanStart: (details) => _onPanStart(textState.id, details),
                                     onPanUpdate: (details) => _onPanUpdate(details, constraints),
                                     onPanEnd: _onPanEnd,
@@ -546,10 +547,6 @@ class _HomePageState extends State<HomePage> {
                   icon: const Icon(Icons.color_lens),
                   onPressed: () => _pickColor(true),
                 ),
-                // IconButton(
-                //   icon: const Icon(Icons.border_color),
-                //   onPressed: () => _pickColor(false),
-                // ),
               ],
             ),
           ),
