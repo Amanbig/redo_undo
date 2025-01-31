@@ -130,122 +130,120 @@ class _HomePageState extends State<HomePage> {
   void _saveState(String pageId) {
     final page = _pages[pageId]!;
     final currentTexts = page.texts.map((text) => text.copyWith()).toList();
-    
+
     page.undoStack.add(currentTexts);
     page.redoStack.clear();
   }
 
-   void _undo() {
-    var currentPageIndex = pageIds.indexOf(_activePageId);
-    var currentPage = _pages[_activePageId]!;
+  void _undo() {
+    // Find the first page with a meaningful undo state (more than initial state)
+    for (int i = 0; i < pageIds.length; i++) {
+      final pageId = pageIds[i];
+      final page = _pages[pageId]!;
 
-    if (currentPage.undoStack.length > 1) {
-      setState(() {
-        currentPage.redoStack.add(currentPage.undoStack.removeLast());
-        currentPage.texts = currentPage.undoStack.last.map((text) => text.copyWith()).toList();
-      });
-    } else {
-      // Move to previous page if available
-      if (currentPageIndex > 0) {
-        currentPageIndex--;
-        final previousPageId = pageIds[currentPageIndex];
-        final previousPage = _pages[previousPageId]!;
+      // Check if there are significant changes to undo
+      if (page.undoStack.length > 1 &&
+          _hasSignificantChanges(
+              page.undoStack.last, page.undoStack[page.undoStack.length - 2])) {
+        setState(() {
+          // Remove current state from undo stack and add to redo stack
+          page.redoStack.add(page.undoStack.removeLast());
 
-        if (previousPage.undoStack.length > 1) {
-          setState(() {
-            _activePageId = previousPageId;
-            _selectedTextId = null;
-            _pageController.animateToPage(
-              currentPageIndex,
-              duration: const Duration(milliseconds: 300),
-              curve: Curves.easeInOut,
-            );
-            
-            // Perform undo on the previous page
-            previousPage.redoStack.add(previousPage.undoStack.removeLast());
-            previousPage.texts = previousPage.undoStack.last.map((text) => text.copyWith()).toList();
-          });
-        }
+          // Restore previous state
+          page.texts =
+              page.undoStack.last.map((text) => text.copyWith()).toList();
+
+          // Navigate to the page with undo action
+          _activePageId = pageId;
+          _selectedTextId = null;
+          _pageController.animateToPage(
+            i,
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeInOut,
+          );
+        });
+        return;
       }
     }
   }
 
   void _redo() {
-    var currentPageIndex = pageIds.indexOf(_activePageId);
-    var currentPage = _pages[_activePageId]!;
+    // Find the first page with a meaningful redo state
+    for (int i = 0; i < pageIds.length; i++) {
+      final pageId = pageIds[i];
+      final page = _pages[pageId]!;
 
-    if (currentPage.redoStack.isNotEmpty) {
-      setState(() {
-        final nextState = currentPage.redoStack.removeLast();
-        currentPage.undoStack.add(nextState);
-        currentPage.texts = nextState.map((text) => text.copyWith()).toList();
-      });
-    } else {
-      // Move to next page if available
-      if (currentPageIndex < pageIds.length - 1) {
-        currentPageIndex++;
-        final nextPageId = pageIds[currentPageIndex];
-        final nextPage = _pages[nextPageId]!;
+      if (page.redoStack.isNotEmpty) {
+        setState(() {
+          // Get the next state from redo stack
+          final nextState = page.redoStack.removeLast();
+          page.undoStack.add(nextState);
 
-        if (nextPage.redoStack.isNotEmpty) {
-          setState(() {
-            _activePageId = nextPageId;
-            _selectedTextId = null;
-            _pageController.animateToPage(
-              currentPageIndex,
-              duration: const Duration(milliseconds: 300),
-              curve: Curves.easeInOut,
-            );
-            
-            // Perform redo on the next page
-            final nextState = nextPage.redoStack.removeLast();
-            nextPage.undoStack.add(nextState);
-            nextPage.texts = nextState.map((text) => text.copyWith()).toList();
-          });
-        }
+          // Restore the state
+          page.texts = nextState.map((text) => text.copyWith()).toList();
+
+          // Navigate to the page with redo action
+          _activePageId = pageId;
+          _selectedTextId = null;
+          _pageController.animateToPage(
+            i,
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeInOut,
+          );
+        });
+        return;
       }
     }
   }
 
-  // Add these helper methods to check if undo/redo are available
-  bool _canUndo() {
-    var currentPageIndex = pageIds.indexOf(_activePageId);
-    var currentPage = _pages[_activePageId]!;
+// Helper method to check if there are significant changes between two states
+  bool _hasSignificantChanges(
+      List<TextState> currentState, List<TextState> previousState) {
+    if (currentState.length != previousState.length) return true;
 
-    // Check current page
-    if (currentPage.undoStack.length > 1) return true;
+    for (int i = 0; i < currentState.length; i++) {
+      final current = currentState[i];
+      final previous = previousState[i];
 
-    // Check previous pages
-    for (int i = currentPageIndex - 1; i >= 0; i--) {
-      final previousPage = _pages[pageIds[i]]!;
-      if (previousPage.undoStack.length > 1) return true;
+      // Check for changes in text properties
+      if (current.text != previous.text ||
+          current.fontSize != previous.fontSize ||
+          current.fontColor != previous.fontColor ||
+          current.fontFamily != previous.fontFamily ||
+          current.position != previous.position ||
+          current.borderColor != previous.borderColor ||
+          current.isBold != previous.isBold ||
+          current.isItalic != previous.isItalic ||
+          current.isUnderline != previous.isUnderline) {
+        return true;
+      }
     }
-    
+
     return false;
   }
 
+// Comprehensive check for undo availability
+  bool _canUndo() {
+    return pageIds.any((pageId) {
+      final page = _pages[pageId]!;
+      return page.undoStack.length > 1 &&
+          _hasSignificantChanges(
+              page.undoStack.last, page.undoStack[page.undoStack.length - 2]);
+    });
+  }
+
+// Comprehensive check for redo availability
   bool _canRedo() {
-    var currentPageIndex = pageIds.indexOf(_activePageId);
-    var currentPage = _pages[_activePageId]!;
-
-    // Check current page
-    if (currentPage.redoStack.isNotEmpty) return true;
-
-    // Check next pages
-    for (int i = currentPageIndex + 1; i < pageIds.length; i++) {
-      final nextPage = _pages[pageIds[i]]!;
-      if (nextPage.redoStack.isNotEmpty) return true;
-    }
-    
-    return false;
+    return pageIds.any((pageId) => _pages[pageId]!.redoStack.isNotEmpty);
   }
 
   void _showEditDialog() {
     if (_selectedTextId == null) return;
-    
-    final selectedText = _pages[_activePageId]!.texts
+
+    final selectedText = _pages[_activePageId]!
+        .texts
         .firstWhere((text) => text.id == _selectedTextId);
-    
+
     showDialog(
       context: context,
       builder: (context) {
@@ -275,9 +273,11 @@ class _HomePageState extends State<HomePage> {
   void _pickColor(bool isFontColor) {
     if (_selectedTextId == null) return;
 
-    final selectedText = _pages[_activePageId]!.texts
+    final selectedText = _pages[_activePageId]!
+        .texts
         .firstWhere((text) => text.id == _selectedTextId);
-    Color tempColor = isFontColor ? selectedText.fontColor : selectedText.borderColor;
+    Color tempColor =
+        isFontColor ? selectedText.fontColor : selectedText.borderColor;
 
     showDialog(
       context: context,
@@ -312,7 +312,8 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  void _updateSelectedText(TextState Function(TextState) update, {bool saveImmediately = true}) {
+  void _updateSelectedText(TextState Function(TextState) update,
+      {bool saveImmediately = true}) {
     if (_selectedTextId == null) return;
 
     setState(() {
@@ -321,7 +322,7 @@ class _HomePageState extends State<HomePage> {
       if (index != -1) {
         final updatedText = update(page.texts[index]);
         page.texts[index] = updatedText;
-        
+
         if (saveImmediately) {
           _saveState(_activePageId);
         }
@@ -470,9 +471,14 @@ class _HomePageState extends State<HomePage> {
                               children: page.texts.map((textState) {
                                 return Positioned.fill(
                                   child: GestureDetector(
-                                    onTap: () => _onPanStart(textState.id, DragStartDetails(localPosition: Offset.zero)),
-                                    onPanStart: (details) => _onPanStart(textState.id, details),
-                                    onPanUpdate: (details) => _onPanUpdate(details, constraints),
+                                    onTap: () => _onPanStart(
+                                        textState.id,
+                                        DragStartDetails(
+                                            localPosition: Offset.zero)),
+                                    onPanStart: (details) =>
+                                        _onPanStart(textState.id, details),
+                                    onPanUpdate: (details) =>
+                                        _onPanUpdate(details, constraints),
                                     onPanEnd: _onPanEnd,
                                     child: Stack(
                                       alignment: Alignment.center,
@@ -482,8 +488,12 @@ class _HomePageState extends State<HomePage> {
                                           child: Container(
                                             decoration: BoxDecoration(
                                               border: Border.all(
-                                                color: textState.isSelected ? Colors.blue : textState.borderColor,
-                                                width: textState.isSelected ? 2 : 1,
+                                                color: textState.isSelected
+                                                    ? Colors.blue
+                                                    : textState.borderColor,
+                                                width: textState.isSelected
+                                                    ? 2
+                                                    : 1,
                                               ),
                                             ),
                                             child: Text(
@@ -492,9 +502,16 @@ class _HomePageState extends State<HomePage> {
                                                 textState.fontFamily,
                                                 fontSize: textState.fontSize,
                                                 color: textState.fontColor,
-                                                fontWeight: textState.isBold ? FontWeight.bold : FontWeight.normal,
-                                                fontStyle: textState.isItalic ? FontStyle.italic : FontStyle.normal,
-                                                decoration: textState.isUnderline ? TextDecoration.underline : null,
+                                                fontWeight: textState.isBold
+                                                    ? FontWeight.bold
+                                                    : FontWeight.normal,
+                                                fontStyle: textState.isItalic
+                                                    ? FontStyle.italic
+                                                    : FontStyle.normal,
+                                                decoration: textState
+                                                        .isUnderline
+                                                    ? TextDecoration.underline
+                                                    : null,
                                               ),
                                             ),
                                           ),
